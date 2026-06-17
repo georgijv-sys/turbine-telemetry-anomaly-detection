@@ -45,11 +45,12 @@ python main.py
 ## Expected output
 
 ```
-Turbine in need of attention:
-Turbine:  T-04
-Turbine:  T-07
-T-04: Mean temperature (90.58°C) exceeds 85°C
-T-07: Maximum vibration (25.00 mm/s) exceeds 15 mm/s
+=============TURBINES IN NEED OF ATTENTION============
+T-04
+T-07
+=====================SPECIFICATIONS====================
+T-04: Mean temperature (90.58°C) exceeds 85.0°C
+T-07: Maximum vibration (25.00 mm/s) exceeds 15.0 mm/s
 ```
 
 **T-04** is flagged for a mean temperature of 90.58 °C (rule 1); **T-07** for a peak vibration of 25.0 mm/s (rule 2). The other eight turbines are within safe limits.
