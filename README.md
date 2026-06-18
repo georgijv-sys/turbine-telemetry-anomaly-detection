@@ -6,7 +6,7 @@ A runnable Python script that scans a sample of offshore wind-turbine IoT teleme
 
 ## What it does
 
-`main.py` reads `telemetry_data(in).csv`, groups every reading by turbine, and applies two anomaly rules. A turbine is flagged if **either** rule is breached (logical **OR**):
+`main.py` reads `telemetry_data.csv`, groups every reading by turbine, and applies two anomaly rules. A turbine is flagged if **either** rule is breached (logical **OR**):
 
 | Rule | Condition (per turbine) | Why this metric |
 |------|-------------------------|-----------------|
@@ -36,7 +36,7 @@ pip install -r requirements.txt
 
 ## Running
 
-The script reads the CSV by **relative path**, so `telemetry_data(in).csv` must sit in the **same folder** as `main.py`. Then:
+The script reads the CSV by **relative path**, so `telemetry_data.csv` must sit in the **same folder** as `main.py`. Then:
 
 ```bash
 python main.py
@@ -57,7 +57,7 @@ T-07: Maximum vibration (25.00 mm/s) exceeds 15.0 mm/s
 
 ## Input data
 
-`telemetry_data(in).csv` — 5,000 readings across 10 turbines (`T-01`…`T-10`).
+`telemetry_data.csv` — 5,000 readings across 10 turbines (`T-01`…`T-10`).
 
 | Column | Type | Notes |
 |--------|------|-------|
