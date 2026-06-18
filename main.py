@@ -12,14 +12,14 @@ This is a batch job over a fixed CSV sample; the continuous, real-time version
 is described in the system architecture diagram (Artefact 3).
 
 Usage:
-    python main.py        # telemetry_data(in).csv must sit in the same folder
+    python main.py        # telemetry_data.csv must sit in the same folder
 """
 import pandas as pd
 
 
 TEMP_LIMIT = 85.0
 VIB_LIMIT = 15.0
-DATA_FILE = "telemetry_data(in).csv"
+DATA_FILE = "telemetry_data.csv"
 
 def compute_metrics(df):
     """Aggregate readings to one row per turbine: mean temperature and max vibration."""
