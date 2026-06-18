@@ -1,0 +1,54 @@
+@startuml AeroGrid_Architecture
+title AeroGrid — Real-Time Turbine Telemetry & Anomaly Detection Pipeline
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 13
+skinparam roundCorner 14
+skinparam ArrowColor #5D6D7E
+skinparam ArrowFontColor #5D6D7E
+skinparam rectangleBorderColor #34495E
+skinparam rectangleFontColor #1B2631
+skinparam noteBackgroundColor #FBFCFC
+skinparam noteBorderColor #AEB6BF
+skinparam noteFontColor #566573
+left to right direction
+
+rectangle "**Turbine Fleet**\nIoT sensors (10 -> 100s)" as sensors #EBF5FB
+rectangle "**IoT Ingestion Gateway**\n//AWS IoT Core / MQTT//" as gateway #EBF5FB
+rectangle "**Message Queue / Pub-Sub**\n//Apache Kafka / AWS Kinesis//" as queue #FEF9E7
+rectangle "**Stream Processor**\n//Flink / Kinesis Analytics / AWS Lambda//\n(containerised anomaly logic)" as proc #E9F7EF
+rectangle "**Hot Store**\n//Time-Series DB: Timestream / InfluxDB//" as hot #FDEDEC
+rectangle "**Cold Store / Data Lake**\n//Amazon S3//" as cold #FDEDEC
+rectangle "**Dashboard**\n//Grafana//" as dash #F4ECF7
+rectangle "**Alerting**\n//SNS / PagerDuty//" as alert #F4ECF7
+actor "Engineering /\nOps Team" as ops
+
+sensors --> gateway : telemetry stream
+gateway --> queue   : publish
+queue   --> proc    : consume (real time)
+queue   --> cold    : raw archive
+proc    --> hot     : metrics + anomaly flags
+proc    --> alert   : on anomaly
+hot     --> dash    : query
+dash    --> ops     : monitor
+alert   --> ops     : notify
+
+note bottom of queue
+  Buffers bursts & decouples fast producers
+  from slower / fragile consumers.
+  Partitioned + replicated across zones
+  => **no single point of failure**.
+end note
+note bottom of proc
+  Applies rules in real time over a sliding window:
+  mean temp > 85.0 C  **OR**  vibration spike > 15.0 mm/s.
+  Scales horizontally; can restart without data loss
+  (unprocessed events stay safe in the queue).
+end note
+note bottom of cold
+  Hot  = recent, fast, for live dashboards.
+  Cold = cheap, full history, for audit / ML.
+end note
+@enduml
