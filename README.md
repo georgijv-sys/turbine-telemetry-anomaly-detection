@@ -1,68 +1,115 @@
-# AeroGrid Turbine Telemetry — Anomaly Detection
+# AeroGrid Turbine Telemetry — Anomaly Detection & Streaming Architecture
 
-**IEUK 2026 Engineering Sector Skills Project — Artefact 1 (Data Processing)**
+> A data-processing tool that flags failing offshore wind turbines from their sensor data — packaged in Docker, with a proposed cloud architecture to run it in real time, at scale.
 
-A runnable Python script that scans a sample of offshore wind-turbine IoT telemetry and reports which turbines require urgent maintenance.
+*Built for the Bright Network **IEUK 2026 Engineering Sector Skills Project**.*
 
-## What it does
+---
 
-`main.py` reads `telemetry_data.csv`, groups every reading by turbine, and applies two anomaly rules. A turbine is flagged if **either** rule is breached (logical **OR**):
+## The problem
 
-| Rule | Condition (per turbine) | Why this metric |
-|------|-------------------------|-----------------|
-| **High temperature** | **mean** of `temperature_c` &gt; **85.0 °C** | sustained overheating — an average, not a single blip |
-| **Vibration spike** | **max** of `vibration_mm_s` &gt; **15.0 mm/s** | a single dangerous spike is enough to flag |
+AeroGrid runs a fleet of offshore wind turbines. Each turbine carries IoT sensors streaming readings — temperature, vibration, rotation speed — around the clock. Two things were going wrong:
 
-For each failing turbine the script prints the Turbine ID and the specific rule(s) it broke, with the offending value as evidence.
+- **Failures slipped through.** Warning signs were buried in millions of log lines, so turbines broke down before anyone spotted them.
+- **The data outgrew the system.** A single ageing server couldn't keep up with the constant flood of sensor data.
 
-## Requirements
+The brief: **analyse a sample of the telemetry to find the failing turbines now**, and **design a modern, scalable system** so it doesn't happen again.
 
-- Python 3.10 or newer
-- pandas (pinned in `requirements.txt`; tested on 3.0.3)
+## What this project does
 
-## Setup
+Three parts:
 
-```bash
-# 1. Create an isolated environment
-python3 -m venv .venv
+1. **Data-processing script** (`main.py`) — reads the telemetry, computes each turbine's key metrics, and prints a clear list of the turbines breaching safety thresholds, with the evidence.
+2. **Containerisation** (`Dockerfile`) — packages the script and its dependencies so it runs identically on any machine.
+3. **Proposed cloud architecture** (`architecture.png`) — a real-time streaming pipeline that replaces the fragile single server.
 
-# 2. Activate it
-source .venv/bin/activate          # macOS / Linux
-# .venv\Scripts\activate           # Windows (PowerShell)
+A turbine is flagged for **urgent maintenance** if **either** rule is breached:
 
-# 3. Install dependencies
-pip install -r requirements.txt
-```
+| Rule | Condition (per turbine) |
+|------|--------------------------|
+| Overheating | **mean** temperature **> 85.0 °C** |
+| Vibration spike | **maximum** vibration **> 15.0 mm/s** |
 
-## Running
+## Results
 
-The script reads the CSV by **relative path**, so `telemetry_data.csv` must sit in the **same folder** as `main.py`. Then:
-
-```bash
-python main.py
-```
-
-## Expected output
+Run against the provided sample (5,000 readings across 10 turbines), the script flags **two** turbines:
 
 ```
-=============TURBINES IN NEED OF ATTENTION============
-T-04
-T-07
-=====================SPECIFICATIONS====================
 T-04: Mean temperature (90.58°C) exceeds 85.0°C
 T-07: Maximum vibration (25.00 mm/s) exceeds 15.0 mm/s
 ```
 
-**T-04** is flagged for a mean temperature of 90.58 °C (rule 1); **T-07** for a peak vibration of 25.0 mm/s (rule 2). The other eight turbines are within safe limits.
+- **T-04** — sustained overheating (mean 90.6 °C).
+- **T-07** — a dangerous vibration spike (peak 25.0 mm/s).
 
-## Input data
+The other eight turbines are within safe limits. Results were verified by hand against the raw data and tested against edge cases (empty input, single-reading turbines).
 
-`telemetry_data.csv` — 5,000 readings across 10 turbines (`T-01`…`T-10`).
+## Proposed architecture
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `timestamp` | text | reading time |
-| `turbine_id` | text | `T-01` … `T-10` |
-| `temperature_c` | float | °C |
-| `vibration_mm_s` | float | mm/s |
-| `rpm` | float | not used by the anomaly rules |
+The script answers *"which turbines are failing right now?"* The architecture answers *"how do we watch **every** turbine **continuously**, without losing data or depending on one server?"*
+
+![Proposed real-time streaming architecture](architecture.png)
+
+- **Message queue** (Kafka / Kinesis) buffers the firehose of readings and decouples ingestion from processing — replicated across zones, so there is **no single point of failure**.
+- **Stream processor** (Flink / AWS Lambda) runs the anomaly rules in real time as each reading arrives.
+- **Hot storage** (time-series DB) powers live dashboards; **cold storage** (data lake) archives everything cheaply for the long term.
+- **Alerting** notifies engineers the instant a turbine crosses a threshold.
+
+## Tech stack
+
+| Tool | Used for | Why |
+|------|----------|-----|
+| **Python + pandas** | data processing | pandas is the industry standard for fast, expressive work on tabular / CSV data |
+| **Docker** | packaging | guarantees the script runs the same anywhere — *"works on my machine"* → works everywhere |
+| **PlantUML** | architecture diagram | diagrams kept as version-controlled text |
+
+## Project structure
+
+```
+.
+├── main.py              # the anomaly-detection script
+├── requirements.txt     # Python dependencies (pinned)
+├── Dockerfile           # container definition
+├── .dockerignore
+├── telemetry_data.csv   # sample sensor data (5,000 readings, 10 turbines)
+├── architecture.puml    # architecture diagram (source)
+├── architecture.png     # architecture diagram (rendered)
+└── report.md            # one-page engineering report to the CTO
+```
+
+## Setup & run
+
+From a clean clone:
+
+```bash
+git clone https://github.com/georgijv-sys/Bright_network_project.git
+cd Bright_network_project
+
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+python main.py
+```
+
+You should see the two flagged turbines (T-04, T-07) printed with their readings.
+
+### Run with Docker (no Python setup needed)
+
+```bash
+docker build -t aerogrid .
+docker run --rm aerogrid
+```
+
+## How the detection works
+
+1. **Load** the CSV into a pandas DataFrame.
+2. **Group by turbine** and compute two metrics per turbine: mean temperature and maximum vibration.
+3. **Flag** any turbine whose mean temperature exceeds 85.0 °C **or** whose peak vibration exceeds 15.0 mm/s.
+4. **Report** each failing turbine, the rule it broke, and the offending value.
+
+The thresholds live in named constants at the top of `main.py`, so they are trivial to adjust.
+
+---
+
+*A sector-skills learning project. The script and container are fully working; the cloud architecture is a proposed design.*
