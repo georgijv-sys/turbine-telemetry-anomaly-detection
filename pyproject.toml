@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+# Put the project root on sys.path so tests can `import main`.
+pythonpath = ["."]
+testpaths = ["tests"]
