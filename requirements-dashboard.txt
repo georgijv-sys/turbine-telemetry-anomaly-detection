@@ -1,0 +1,6 @@
+# Dependencies for the interactive dashboard (dashboard.py).
+# Kept separate from the runtime script + its Docker image.
+# Install with:  pip install -r requirements-dashboard.txt
+-r requirements.txt
+streamlit==1.58.0
+plotly==6.8.0
