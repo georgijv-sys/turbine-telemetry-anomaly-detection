@@ -17,11 +17,12 @@ The brief: **analyse a sample of the telemetry to find the failing turbines now*
 
 ## What this project does
 
-Three parts:
+Four parts:
 
 1. **Data-processing script** (`main.py`) — reads the telemetry, computes each turbine's key metrics, and prints a clear list of the turbines breaching safety thresholds, with the evidence.
 2. **Containerisation** (`Dockerfile`) — packages the script and its dependencies so it runs identically on any machine.
 3. **Proposed cloud architecture** (`architecture.png`) — a real-time streaming pipeline that replaces the fragile single server.
+4. **Interactive dashboard** (`dashboard.py`) — a Streamlit web app to explore the fleet's health visually (see the **Dashboard** section below).
 
 A turbine is flagged for **urgent maintenance** if **either** rule is breached:
 
@@ -62,13 +63,16 @@ The script answers *"which turbines are failing right now?"* The architecture an
 | **Python + pandas** | data processing | pandas is the industry standard for fast, expressive work on tabular / CSV data |
 | **Docker** | packaging | guarantees the script runs the same anywhere — *"works on my machine"* → works everywhere |
 | **PlantUML** | architecture diagram | diagrams kept as version-controlled text |
+| **Streamlit + Plotly** | interactive dashboard | turns the analysis into a UI anyone can explore — pure Python, no front-end code |
 
 ## Project structure
 
 ```
 .
 ├── main.py              # the anomaly-detection script
+├── dashboard.py         # interactive Streamlit dashboard
 ├── requirements.txt     # Python dependencies (pinned)
+├── requirements-dashboard.txt   # dashboard deps (streamlit + plotly)
 ├── Dockerfile           # container definition
 ├── .dockerignore
 ├── telemetry_data.csv   # sample sensor data (5,000 readings, 10 turbines)
@@ -100,6 +104,27 @@ You should see the two flagged turbines (T-04, T-07) printed with their readings
 docker build -t aerogrid .
 docker run --rm aerogrid
 ```
+
+## Dashboard
+
+Prefer to *see* the fleet rather than read terminal output? `dashboard.py` is an interactive [Streamlit](https://streamlit.io) web app built on the **same** `compute_metrics` logic — no detection code is duplicated.
+
+```bash
+pip install -r requirements-dashboard.txt   # streamlit + plotly
+streamlit run dashboard.py
+```
+
+It starts a local web server and opens in your browser at **http://localhost:8501**. Streamlit keeps running until you stop it with **Ctrl + C** — launch it once and leave it running. (Re-running the command in the same terminal does nothing; that terminal is now hosting the server. To see code changes, just save the file and click **Rerun** in the browser.)
+
+What you can explore:
+
+- **Fleet status** — every turbine colour-tagged Healthy / Overheating / Vibration spike, with its metrics.
+- **Adjustable thresholds** — sliders to change the 85 °C / 15 mm/s limits and watch the fleet re-classify live.
+- **"Danger zone" chart** — temperature vs vibration with the limits drawn in; anything top-right is breaching a rule.
+- **Per-turbine bars** and a **single-turbine time-series** drill-down.
+- **Fleet insights** — hottest turbine, shakiest turbine, the data's time window.
+
+> The dashboard reads the same CSV today. Its `load_data()` function is the only part tied to the file — swapping it for a live-stream reader is all it takes to make the dashboard real-time.
 
 ## How the detection works
 
