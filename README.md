@@ -118,6 +118,25 @@ streamlit run dashboard.py
 
 It starts a local web server and opens in your browser at **http://localhost:8501**. Streamlit keeps running until you stop it with **Ctrl + C** — launch it once and leave it running. (Re-running the command in the same terminal does nothing; that terminal is now hosting the server. To see code changes, just save the file and click **Rerun** in the browser.)
 
+### Dashboard walkthrough
+
+
+The opening view combines the threshold controls, KPIs, fleet table, and danger-zone scatter. On the static sample it immediately identifies **T-04** as overheating and **T-07** as the vibration-spike case.
+
+![Static dashboard overview with controls, KPIs, fleet table, and danger-zone chart](screenshots/dashboard-overview.png)
+
+The next section breaks the two rules into separate per-turbine charts. The red bar shows the mean-temperature breach; the orange bar shows the maximum-vibration breach.
+
+![Per-turbine temperature and vibration threshold charts](screenshots/dashboard-thresholds.png)
+
+The drill-down lets you inspect one turbine's raw readings across the sample window. Here **T-04** is selected, matching the hottest-turbine insight at the bottom of the dashboard.
+
+![Single-turbine drill-down and fleet insights](screenshots/dashboard-drilldown-insights.png)
+
+Live mode uses `simulator.py` to feed a rolling window of generated readings into the same dashboard. The KPIs, fleet table, and danger-zone scatter update together as injected faults develop.
+
+![Live stream mode showing generated turbine faults in the rolling dashboard window](screenshots/dashboard-live.png)
+
 What you can explore:
 
 - **Fleet status** — every turbine colour-tagged Healthy / Overheating / Vibration spike, with its metrics.
