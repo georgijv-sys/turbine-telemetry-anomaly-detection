@@ -88,8 +88,8 @@ The script answers *"which turbines are failing right now?"* The architecture an
 From a clean clone:
 
 ```bash
-git clone https://github.com/georgijv-sys/Bright_network_project.git
-cd Bright_network_project
+git clone https://github.com/georgijv-sys/turbine-telemetry-anomaly-detection.git
+cd turbine-telemetry-anomaly-detection
 
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
