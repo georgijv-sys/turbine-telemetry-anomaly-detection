@@ -17,12 +17,13 @@ The brief: **analyse a sample of the telemetry to find the failing turbines now*
 
 ## What this project does
 
-Four parts:
+Five parts:
 
 1. **Data-processing script** (`main.py`) — reads the telemetry, computes each turbine's key metrics, and prints a clear list of the turbines breaching safety thresholds, with the evidence.
 2. **Containerisation** (`Dockerfile`) — packages the script and its dependencies so it runs identically on any machine.
 3. **Proposed cloud architecture** (`architecture.png`) — a real-time streaming pipeline that replaces the fragile single server.
 4. **Interactive dashboard** (`dashboard.py`) — a Streamlit web app to explore the fleet's health visually (see the **Dashboard** section below).
+5. **Live data simulator** (`simulator.py`) — streams realistic, continuously-generated readings into the dashboard's live mode, demonstrating the real-time pipeline locally (see **Live mode**).
 
 A turbine is flagged for **urgent maintenance** if **either** rule is breached:
 
@@ -71,6 +72,7 @@ The script answers *"which turbines are failing right now?"* The architecture an
 .
 ├── main.py              # the anomaly-detection script
 ├── dashboard.py         # interactive Streamlit dashboard
+├── simulator.py         # live data generator (feeds the dashboard's live mode)
 ├── requirements.txt     # Python dependencies (pinned)
 ├── requirements-dashboard.txt   # dashboard deps (streamlit + plotly)
 ├── Dockerfile           # container definition
@@ -124,7 +126,20 @@ What you can explore:
 - **Per-turbine bars** and a **single-turbine time-series** drill-down.
 - **Fleet insights** — hottest turbine, shakiest turbine, the data's time window.
 
-> The dashboard reads the same CSV today. Its `load_data()` function is the only part tied to the file — swapping it for a live-stream reader is all it takes to make the dashboard real-time.
+### Live mode — real-time simulation
+
+The dashboard isn't limited to the static sample. **`simulator.py`** mimics the live sensor feed: it generates fresh readings every second — **automatically injecting faults that worsen over time** — and writes a rolling window to `live_telemetry.csv`. Switch the sidebar to **"Live stream 🔴"** and watch the fleet evolve in real time, turbines climbing and flipping red as faults emerge.
+
+Run the simulator and dashboard in two terminals:
+
+```bash
+python simulator.py            # terminal 1 — the producer (Ctrl+C to stop)
+streamlit run dashboard.py     # terminal 2 — the dashboard (sidebar → Live stream 🔴)
+```
+
+> **Note:** `live_telemetry.csv` is **not** in the repo — it's *generated* by the simulator at runtime (gitignored, like `.venv`). A fresh clone won't have it until you run `python simulator.py`; open Live mode before then and the dashboard just prompts you to start the simulator.
+
+**How it mirrors the architecture:** `simulator.py` (the producer) and `live_telemetry.csv` (the channel) are a local stand-in for the streaming pipeline — in production the sensors would publish to a message queue (Kafka / Kinesis) and the dashboard would subscribe. The data loader is abstracted, so the source swaps without touching the UI, and the bounded rolling window mirrors the **hot-storage** idea: only recent data is kept fast and small.
 
 ## How the detection works
 
