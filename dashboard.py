@@ -5,15 +5,24 @@ A Streamlit UI built on top of the SAME anomaly-detection logic as main.py
 which turbines are healthy, drill into a single turbine's readings over time,
 and experiment with the safety thresholds.
 
+Two data sources (sidebar):
+  * Static sample  — the fixed telemetry_data.csv
+  * Live stream    — live_telemetry.csv, fed continuously by simulator.py
+
 Run:
     pip install -r requirements-dashboard.txt
     streamlit run dashboard.py
 
-Future: this reads a fixed CSV today. To go live, swap `load_data()` for a
-reader that pulls from the streaming pipeline (see architecture.png) — nothing
-else in this file needs to change.
+For the live view, run the simulator in a second terminal:
+    python simulator.py
+
+The live file is a local stand-in for a streaming pipeline; in production the
+source would be a message queue (see architecture.png) — only load_live() changes.
 """
 from __future__ import annotations
+
+import os
+import time
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -23,33 +32,46 @@ import streamlit as st
 from main import compute_metrics, DATA_FILE, TEMP_LIMIT, VIB_LIMIT
 
 OK_BLUE, DANGER_RED, WARN_ORANGE, OK_GREEN = "#5DADE2", "#E74C3C", "#E67E22", "#2ECC71"
+LIVE_FILE = "live_telemetry.csv"
 
 st.set_page_config(page_title="AeroGrid Turbine Dashboard", page_icon="🌀", layout="wide")
 
 
 @st.cache_data
 def load_data(path: str = DATA_FILE) -> pd.DataFrame:
-    """Load the telemetry CSV and parse timestamps (cached, so reruns are instant).
-
-    Swap the body of this function to read from a live stream to go real-time.
-    """
+    """Load the static telemetry CSV (cached, so reruns are instant)."""
     df = pd.read_csv(path)
-    df["timestamp"] = pd.to_datetime(
-        df["timestamp"], format="%m/%d/%Y %H:%M", errors="coerce"
-    )
+    df["timestamp"] = pd.to_datetime(df["timestamp"], format="mixed", errors="coerce")
     return df
 
 
-# ----------------------------------------------------------------- load data
-try:
-    df = load_data()
-except FileNotFoundError:
-    st.error(f"Could not find `{DATA_FILE}`. Put it next to dashboard.py and reload.")
-    st.stop()
+def load_live(path: str = LIVE_FILE) -> pd.DataFrame:
+    """Read the live rolling window (uncached, so every refresh shows new data)."""
+    df = pd.read_csv(path)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], format="mixed", errors="coerce")
+    return df
 
-# ----------------------------------------------------------------- sidebar controls
+
+# ----------------------------------------------------------------- sidebar + data source
 st.sidebar.header("⚙️ Controls")
-st.sidebar.caption("Drag the thresholds and watch the fleet status update instantly.")
+source = st.sidebar.radio("Data source", ["Static sample", "Live stream 🔴"])
+live = source.startswith("Live")
+
+if live:
+    if not os.path.exists(LIVE_FILE):
+        st.warning("No live data yet — in another terminal run:  `python simulator.py`")
+        st.stop()
+    df = load_live()
+    st.sidebar.caption("🔴 Live — refreshing every 2 s. Run `python simulator.py` to feed it.")
+else:
+    try:
+        df = load_data()
+    except FileNotFoundError:
+        st.error(f"Could not find `{DATA_FILE}`. Put it next to dashboard.py and reload.")
+        st.stop()
+
+st.sidebar.divider()
+st.sidebar.caption("Drag the thresholds and watch the fleet re-classify.")
 temp_limit = st.sidebar.slider("Max mean temperature (°C)", 50.0, 100.0, float(TEMP_LIMIT), 0.5)
 vib_limit = st.sidebar.slider("Max vibration spike (mm/s)", 5.0, 30.0, float(VIB_LIMIT), 0.5)
 st.sidebar.divider()
@@ -77,7 +99,7 @@ n_total = len(metrics)
 n_failing = int(metrics["failing"].sum())
 
 # ----------------------------------------------------------------- header + KPIs
-st.title(" AeroGrid Turbine Telemetry Dashboard")
+st.title("🌀 AeroGrid Turbine Telemetry Dashboard")
 st.markdown(
     "Health view of an offshore wind-turbine fleet. A turbine is flagged when its "
     f"**mean temperature exceeds {temp_limit:.1f} °C** *or* its **peak vibration exceeds "
@@ -187,6 +209,11 @@ i2.info(f"**Shakiest turbine:** {shakiest} — peak {metrics.loc[shakiest, 'max_
 i3.info(f"**Data window:** {span} · {len(df):,} readings")
 
 st.caption(
-    "ℹ️ This dashboard reads a fixed CSV today. The architecture (architecture.png) is "
-    "designed to feed it from a live stream — swap `load_data()` to go real-time."
+    "ℹ️ Static mode reads a fixed CSV; live mode reads simulator.py's stream. In production "
+    "the source would be a message queue (architecture.png) — the loader is abstracted so it swaps cleanly."
 )
+
+# Live mode: re-run every couple of seconds to pull the newest readings.
+if live:
+    time.sleep(2)
+    st.rerun()
