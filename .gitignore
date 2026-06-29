@@ -183,9 +183,6 @@ cython_debug/
 # OS files
 .DS_Store
 
-# Claude Code local settings
-.claude/
-
 # Generated live-stream data (simulator output)
 live_telemetry.csv
 live_telemetry.csv.tmp
